@@ -1,0 +1,139 @@
+.TH CVEGRID 1 "November 2026" "cvegrid 1.2.0" "User Commands"
+.SH NAME
+cvegrid \- High-performance, terminal-native CVE and threat intelligence dossier explorer
+.B cvegrid
+[\fBweb\fR \fBstart\fR|\fBstop\fR|\fBstatus\fR]
+[\fB\-t\fR | \fB\-tui\fR]
+[\fB\-w\fR | \fB\-web\fR]
+[\fB\-d\fR | \fB\-daemon\fR]
+[\fB\-port\fR \fInumber\fR]
+[\fB\-sync\fR]
+[\fB\-db\fR \fIpath\fR]
+[\fB\-feed\fR \fIurl\fR]
+[\fB\-version\fR]
+.SH DESCRIPTION
+.B cvegrid
+is a single-binary, dual-engine (Terminal TUI and Web Threat Console) security telemetry and CVE dossier exploration utility written in pure Go. It delivers immediate situational awareness into active, exploited cyber threats by streaming and classifying the Cybersecurity and Infrastructure Security Agency (CISA) Known Exploited Vulnerabilities (KEV) catalog directly inside your terminal or desktop browser.
+
+Built with an asynchronous event loop, embedded web assets (\fBembed.FS\fR), smart dynamic port hunting, and zero CGO dependencies,
+.B cvegrid
+guarantees a responsive 60 FPS terminal interface or a dark cyber SOC web operations dashboard while performing real-time heuristic classification, full-text searching, and cryptographic record persistence.
+.SH OPTIONS & COMMANDS
+.TP
+\fBweb start\fR
+Launch the embedded web dashboard as a detached background daemon process and open the default browser.
+.TP
+\fBweb stop\fR
+Gracefully stop the background daemon process and clean up the runtime PID file.
+.TP
+\fBweb status\fR
+Inspect the active background daemon status, reporting PID, bound port, active URL, and elapsed uptime.
+.TP
+\fB\-t\fR, \fB\-tui\fR
+Launch the Bubbletea Terminal TUI workstation interface directly.
+.TP
+\fB\-w\fR, \fB\-web\fR
+Launch the embedded Web Threat Console on \fB127.0.0.1:<port>\fR and automatically open the default web browser.
+.TP
+\fB\-d\fR, \fB\-daemon\fR
+Run the web dashboard as a detached background daemon.
+.TP
+\fB\-port\fR \fInumber\fR, \fB\-p\fR \fInumber\fR
+Specify custom base HTTP port for the web dashboard (default: 19840, with automatic forward port hunting).
+.TP
+\fB\-sync\fR
+Execute headlessly in CLI mode to fetch, classify, and persist the latest threat feed without launching the interactive interfaces. Exits with status 0 upon completion.
+.TP
+\fB\-db\fR \fIpath\fR
+Override the default SQLite database path. Defaults to \fB$XDG_DATA_HOME/cvegrid/cvegrid.db\fR (or \fB~/.local/share/cvegrid/cvegrid.db\fR).
+.TP
+\fB\-feed\fR \fIurl\fR
+Custom URL for the CISA KEV JSON feed or compatible catalog endpoint.
+.TP
+\fB\-v\fR, \fB\-version\fR
+Display software version, architecture, and toolchain information and exit.
+.SH KEYBINDINGS & NAVIGATION
+.SS Table & Navigation
+.TP
+.B j\fR, \fBDown\fR
+Select the next threat vulnerability down in the stream.
+.TP
+.B k\fR, \fBUp\fR
+Select the previous threat vulnerability up in the stream.
+.TP
+.B g\fR, \fBHome\fR
+Jump directly to the newest (top) threat record.
+.TP
+.B G\fR, \fBEnd\fR
+Jump directly to the oldest (bottom) threat record.
+.TP
+.B PgUp\fR, \fBPgDown\fR
+Page through the threat stream.
+.SS Category Filtering
+.TP
+.B 1
+View all threat records [1: ALL].
+.TP
+.B 2
+Filter threat records affecting operating system kernels and core platform drivers [2: KERNEL & OS].
+.TP
+.B 3
+Filter threat records targeting perimeter defenses, firewalls, routers, and VPN gateways [3: FIREWALL & NET].
+.TP
+.B 4
+Filter vulnerabilities caused by memory safety violations including Use-After-Free, buffer overflows, and heap corruption [4: MEMORY SAFETY].
+.TP
+.B 5
+Filter flaws in server daemons, containers, databases, and application frameworks [5: SERVICES & APPS].
+.SS Inspection & Actions
+.TP
+.B /
+Initiate live substring and regular expression search prompt. Real-time matching executes across CVE identifier, target vendor, and product fields.
+.TP
+.B Enter
+Open the fullscreen centered Deep Dossier Inspection modal overlay dialog with full technical analysis, remediation notices, and official links.
+.TP
+.B o
+Open the official NIST National Vulnerability Database (NVD) bulletin URL in the user's default desktop web browser via \fBxdg-open\fR.
+.TP
+.B r
+Trigger an asynchronous background feed synchronization. An animated telemetry spinner appears in the top HUD during retrieval.
+.TP
+.B Esc\fR, \fBq\fR
+Dismiss search prompt, close the active dossier inspection modal, or gracefully exit the application.
+.SH CLASSIFICATION ENGINE & HEURISTICS
+.B cvegrid
+analyzes incoming threat intelligence using a deterministic lexical classification parser:
+.TP
+.B KERNEL & OS
+Keywords: \fIlinux\fR, \fIkernel\fR, \fIfreebsd\fR, \fIunix\fR, \fIbpf\fR, \fIdriver\fR, \fIwindows\fR, \fImacos\fR.
+.TP
+.B FIREWALL & NET
+Keywords: \fIfirewall\fR, \fIzyxel\fR, \fIcisco\fR, \fIfortinet\fR, \fIpfsense\fR, \fIvpn\fR, \fIipsec\fR, \fIwireguard\fR, \fIrouter\fR, \fIpan-os\fR, \fItcp\fR.
+.TP
+.B MEMORY SAFETY
+Keywords: \fIuse-after-free\fR, \fIbuffer overflow\fR, \fIheap\fR, \fIstack\fR, \fIout-of-bounds\fR, \fIrace condition\fR, \fImemory corruption\fR.
+.TP
+.B SERVICES & APPS
+Keywords: \fInginx\fR, \fIapache\fR, \fIopenssl\fR, \fIssh\fR, \fIsudo\fR, \fIredis\fR, \fIpostgres\fR, \fIdocker\fR, \fIexchange\fR.
+.TP
+.B Attack Vectors
+Remote or unauthenticated keywords categorize vectors as \fBNETWORK / REMOTE\fR; privilege escalation terms categorize as \fBLOCAL / PRIVESC\fR; otherwise categorized as \fBLOCAL / INTERNAL\fR.
+.TP
+.B Severity Scoring
+Vulnerabilities referencing remote code execution (RCE), unauthenticated compromise, or use-after-free flaws are scored as \fBCRITICAL (9.8)\fR. All other active exploited threats default to \fBHIGH (7.5)\fR.
+.SH FILES
+.TP
+.I $XDG_DATA_HOME/cvegrid/cvegrid.db
+Default SQLite persistent storage containing indexed vulnerability records and synchronization telemetry.
+.SH EXIT STATUS
+.TP
+.B 0
+Success.
+.TP
+.B 1
+Initialization, network failure, or fatal runtime error.
+.SH AUTHORS
+Written and maintained by the cvegrid engineering team.
+.SH COPYRIGHT
+Copyright (c) 2026. Distributed under the MIT License.

@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CVEGRID // INTEL MATRIX</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- Top Telemetry HUD Bar -->
+  <header class="cti-header">
+    <div class="cti-brand">
+      <span>CVEGRID // INTEL MATRIX</span>
+      <span class="heartbeat-badge" id="heartbeatStatus">[● LIVE]</span>
+    </div>
+
+    <div class="hud-metrics">
+      <div class="hud-metric">
+        <span class="metric-label">TOTAL CVEs</span>
+        <span class="metric-val" id="hudTotal">0</span>
+      </div>
+      <div class="hud-metric">
+        <span class="metric-label">CRITICAL CVSS</span>
+        <span class="metric-val crimson" id="hudCritical">0</span>
+      </div>
+      <div class="hud-metric">
+        <span class="metric-label">RANSOMWARE LINKED</span>
+        <span class="metric-val crimson" id="hudRansomware">0</span>
+      </div>
+      <div class="hud-metric">
+        <span class="metric-label">AVG EPSS RISK</span>
+        <span class="metric-val orange" id="hudAvgEPSS">0.0%</span>
+      </div>
+      <div class="hud-metric">
+        <span class="metric-label">FEED TELEMETRY</span>
+        <span class="metric-val cyan" style="font-size: 0.75rem;" id="hudLastSync">NEVER</span>
+      </div>
+    </div>
+
+    <div class="header-controls">
+      <button class="cti-btn cti-btn-primary" id="btnSync">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.19"/>
+        </svg>
+        <span id="btnSyncText">SYNC FEED</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Three-Column CTI Workstation -->
+  <main class="cti-workstation">
+
+    <!-- Column 1: Live Threat Matrix (50%) -->
+    <section class="cti-column column-matrix">
+      <div class="column-header">
+        <span>01 // LIVE THREAT MATRIX</span>
+        <span id="matrixCountDisplay">0 RECORDS</span>
+      </div>
+
+      <div class="matrix-toolbar">
+        <div class="filter-chips" id="filterChips">
+          <button class="chip-btn active" data-cat="ALL">ALL</button>
+          <button class="chip-btn ransomware-chip" id="chipRansomware">🚨 RANSOMWARE ONLY</button>
+          <button class="chip-btn" data-cat="KERNEL & OS">KERNEL & OS</button>
+          <button class="chip-btn" data-cat="FIREWALL & NET">FIREWALL & NET</button>
+          <button class="chip-btn" data-cat="MEMORY SAFETY">MEMORY SAFETY</button>
+          <button class="chip-btn" data-cat="SERVICES & APPS">SERVICES & APPS</button>
+          <button class="chip-btn" data-cat="OTHER">OTHER</button>
+        </div>
+
+        <div class="search-row">
+          <input type="text" class="cti-input" id="searchInput" placeholder="Search CVE ID, vendor, product, or CWE (e.g. CWE-787, Fortinet)...">
+          <select class="cti-input" id="severitySelect" style="width: 140px; cursor: pointer;">
+            <option value="ALL">ALL SEVERITY</option>
+            <option value="CRITICAL">CRITICAL</option>
+            <option value="HIGH">HIGH</option>
+            <option value="MEDIUM">MEDIUM</option>
+            <option value="LOW">LOW</option>
+          </select>
+          <select class="cti-input" id="sortSelect" style="width: 130px; cursor: pointer;">
+            <option value="date_desc">NEWEST</option>
+            <option value="epss_desc">EPSS % (HIGH)</option>
+            <option value="score_desc">CVSS (HIGH)</option>
+            <option value="date_asc">OLDEST</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="matrix-table-wrap">
+        <table class="matrix-table">
+          <thead>
+            <tr>
+              <th style="width: 85px;">DATE</th>
+              <th style="width: 130px;">CVE ID</th>
+              <th>TARGET SYSTEM</th>
+              <th style="width: 80px;">CWE</th>
+              <th style="width: 75px;">CVSS</th>
+              <th style="width: 75px;">EPSS</th>
+              <th style="width: 60px; text-align: center;">RANSOM</th>
+            </tr>
+          </thead>
+          <tbody id="matrixTableBody">
+            <!-- Populated via Javascript -->
+          </tbody>
+        </table>
+      </div>
+
+      <div class="matrix-pagination">
+        <span id="paginationSummary">Showing 0-0 of 0</span>
+        <div style="display: flex; gap: 0.35rem; align-items: center;">
+          <button class="cti-btn" id="btnPrevPage" style="padding: 0.2rem 0.5rem; font-size: 0.65rem;" disabled>◄ PREV</button>
+          <span id="pageIndicator" style="padding: 0 0.4rem; color: var(--cyan);">PAGE 1</span>
+          <button class="cti-btn" id="btnNextPage" style="padding: 0.2rem 0.5rem; font-size: 0.65rem;" disabled>NEXT ►</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Column 2: Dual-Tier CTI Dossier & Kill Chain (30%) -->
+    <section class="cti-column column-dossier">
+      <div class="column-header">
+        <span>02 // CTI DOSSIER</span>
+        <!-- Tier Switcher -->
+        <div class="tier-nav" id="tierNav">
+          <button class="tier-tab-btn active" id="tabTierHuman" data-tier="human">HUMAN OVERVIEW</button>
+          <button class="tier-tab-btn" id="tabTierPro" data-tier="pro">PRO INSPECTOR ⚙</button>
+        </div>
+      </div>
+
+      <div class="dossier-content" id="dossierContent">
+        <!-- Headline Block -->
+        <div class="dossier-headline">
+          <div class="cve-banner">
+            <div>
+              <span class="cve-id-large" id="dossierCveId">-</span>
+              <div class="cve-target-sub" id="dossierTargetSub">Select a record from live matrix</div>
+            </div>
+            <button class="cti-btn" id="btnCopyCve" style="padding: 0.2rem 0.5rem; font-size: 0.65rem;">📋 COPY</button>
+          </div>
+
+          <!-- 3 Instant Badges -->
+          <div class="instant-badges" id="dossierInstantBadges">
+            <span class="instant-badge badge-urgency" id="badgeUrgency">URGENCY: -</span>
+            <span class="instant-badge badge-exploit" id="badgeExploit">🔥 -</span>
+            <span class="instant-badge badge-action" id="badgeAction">⚡ -</span>
+          </div>
+
+          <div id="dossierRansomwareBanner"></div>
+        </div>
+
+        <!-- TIER 1: HUMAN-FIRST OVERVIEW (Default) -->
+        <div class="tier-panel active" id="panelTierHuman">
+          <!-- Executive Summary TL;DR Card -->
+          <div class="tldr-card">
+            <div class="tldr-header">
+              <span class="tldr-title">EXECUTIVE SUMMARY (TL;DR)</span>
+              <span class="tldr-tag">PLAIN-ENGLISH</span>
+            </div>
+            <div class="tldr-body" id="dossierTldr">
+              Select any vulnerability from the threat matrix to inspect an executive plain-English summary.
+            </div>
+          </div>
+
+          <!-- Action Box: What should you do right now? -->
+          <div class="action-box">
+            <div class="action-box-header">
+              <span class="action-box-title">🛡️ WHAT SHOULD YOU DO RIGHT NOW?</span>
+              <span class="action-due-tag" id="dossierDueTag">MANDATORY ACTION</span>
+            </div>
+            <div class="action-checklist" id="dossierChecklist">
+              <!-- Dynamically populated checklist with smart links -->
+            </div>
+          </div>
+
+          <!-- Recommended Threat Intelligence & Deep Reads -->
+          <div class="curated-reads-section">
+            <div class="curated-header">
+              <span>RECOMMENDED THREAT INTEL & DEEP READS</span>
+              <span style="font-size: 0.65rem; color: var(--text-dim);">3 CONTEXTUAL READS</span>
+            </div>
+            <div class="curated-cards" id="dossierCuratedCards">
+              <!-- Dynamically populated 3 Intel Cards -->
+            </div>
+          </div>
+        </div>
+
+        <!-- TIER 2: PRO INSPECTOR (Deep Technical Telemetry) -->
+        <div class="tier-panel" id="panelTierPro" style="display: none;">
+          <!-- EPSS Exploit Probability Meter -->
+          <div class="epss-container">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span class="field-label">EXPLOIT PREDICTION SCORING (EPSS)</span>
+              <span id="dossierEpssVal" style="font-weight: 800; color: var(--orange);">0.0%</span>
+            </div>
+            <div class="epss-bar-track">
+              <div class="epss-bar-fill" id="dossierEpssBar" style="width: 0%;"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: var(--text-dim);">
+              <span id="dossierEpssRiskText">NOMINAL PROBABILITY</span>
+              <span id="dossierEpssPercentile">Percentile: 0%</span>
+            </div>
+          </div>
+
+          <!-- Pro Metadata Grid -->
+          <div class="dossier-grid">
+            <div class="dossier-field">
+              <span class="field-label">TARGET VENDOR</span>
+              <span class="field-val" id="dossierVendor">-</span>
+            </div>
+            <div class="dossier-field">
+              <span class="field-label">PRODUCT</span>
+              <span class="field-val" id="dossierProduct">-</span>
+            </div>
+            <div class="dossier-field">
+              <span class="field-label">MITRE CWE</span>
+              <span class="field-val" id="dossierCwe">-</span>
+            </div>
+            <div class="dossier-field">
+              <span class="field-label">CVSS RATING</span>
+              <span class="field-val" id="dossierCvss">-</span>
+            </div>
+            <div class="dossier-field full">
+              <span class="field-label">CVSS v3.1 VECTOR</span>
+              <span class="field-val" id="dossierVectorStr" style="font-size: 0.65rem; color: var(--text-muted);">-</span>
+            </div>
+            <div class="dossier-field full">
+              <span class="field-label">CWE SECURITY WEAKNESS DEFINITION</span>
+              <span class="field-val" id="dossierCweDesc" style="font-size: 0.7rem; color: var(--text-main);">-</span>
+            </div>
+            <div class="dossier-field">
+              <span class="field-label">ATTACK VECTOR</span>
+              <span class="field-val" id="dossierVector">-</span>
+            </div>
+            <div class="dossier-field">
+              <span class="field-label">DATE ADDED TO KEV</span>
+              <span class="field-val" id="dossierDate">-</span>
+            </div>
+          </div>
+
+          <!-- Technical Dossier Kill Chain -->
+          <div class="dossier-block">
+            <div class="block-title">TECHNICAL KILL CHAIN & DESCRIPTION</div>
+            <div class="block-body" id="dossierDesc">-</div>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 0.5rem; margin-top: auto; padding-top: 0.5rem;">
+          <a href="#" target="_blank" class="cti-btn cti-btn-primary" id="btnNist" style="flex: 1; text-align: center; justify-content: center;">
+            NIST NVD ↗
+          </a>
+          <a href="https://www.cisa.gov/known-exploited-vulnerabilities-catalog" target="_blank" class="cti-btn" style="flex: 1; text-align: center; justify-content: center;">
+            CISA KEV ↗
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Column 3: Threat Intelligence & Metrics (20%) -->
+    <section class="cti-column column-metrics">
+      <div class="column-header">
+        <span>03 // CTI ANALYTICS</span>
+        <span>TELEMETRY</span>
+      </div>
+
+      <div class="metrics-content">
+        <!-- EPSS Risk Tiers -->
+        <div class="metric-section">
+          <div class="section-head">EPSS RISK PROBABILITY TIERS</div>
+          <div class="stat-row">
+            <span style="color: var(--crimson);">CRITICAL (> 80%)</span>
+            <span id="metricEpssCrit" style="font-weight: 700;">0</span>
+          </div>
+          <div class="stat-row">
+            <span style="color: var(--orange);">HIGH (50% - 80%)</span>
+            <span id="metricEpssHigh" style="font-weight: 700;">0</span>
+          </div>
+          <div class="stat-row">
+            <span style="color: var(--emerald);">LOW (< 50%)</span>
+            <span id="metricEpssLow" style="font-weight: 700;">0</span>
+          </div>
+        </div>
+
+        <!-- Top Exploited Vendors -->
+        <div class="metric-section">
+          <div class="section-head">TOP TARGETED VENDORS</div>
+          <div id="metricsVendorsList" style="display: flex; flex-direction: column; gap: 0.35rem;">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <!-- Attack Vector Breakdown -->
+        <div class="metric-section">
+          <div class="section-head">ATTACK VECTOR RATIO</div>
+          <div id="metricsVectorList" style="display: flex; flex-direction: column; gap: 0.35rem;">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Industrial Toast -->
+  <div class="cti-toast" id="ctiToast">ACTION COMPLETED</div>
+
+  <script src="app.js"></script>
+</body>
+</html>
