@@ -35,6 +35,8 @@ CREATE TABLE IF NOT EXISTS vulnerabilities (
     action_summary TEXT DEFAULT 'APPLY VENDOR PATCH',
     cwe_description TEXT DEFAULT '',
     articles_json TEXT DEFAULT '[]',
+    ecosystem TEXT DEFAULT '',
+    tech_tags TEXT DEFAULT '[]',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -49,6 +51,7 @@ CREATE INDEX IF NOT EXISTS idx_cve_category ON vulnerabilities(category);
 CREATE INDEX IF NOT EXISTS idx_cve_search ON vulnerabilities(cve_id, vendor, product);
 CREATE INDEX IF NOT EXISTS idx_cve_ransomware ON vulnerabilities(ransomware_campaign);
 CREATE INDEX IF NOT EXISTS idx_cve_epss ON vulnerabilities(epss_score DESC);
+CREATE INDEX IF NOT EXISTS idx_cve_ecosystem ON vulnerabilities(ecosystem);
 `
 
 // migrationColumns defines columns added in later versions to ensure graceful upgrades.
@@ -65,6 +68,9 @@ var migrationColumns = []string{
 	"ALTER TABLE vulnerabilities ADD COLUMN action_summary TEXT DEFAULT 'APPLY VENDOR PATCH'",
 	"ALTER TABLE vulnerabilities ADD COLUMN cwe_description TEXT DEFAULT ''",
 	"ALTER TABLE vulnerabilities ADD COLUMN articles_json TEXT DEFAULT '[]'",
+	"ALTER TABLE vulnerabilities ADD COLUMN ecosystem TEXT DEFAULT ''",
+	"ALTER TABLE vulnerabilities ADD COLUMN tech_tags TEXT DEFAULT '[]'",
+	"CREATE INDEX IF NOT EXISTS idx_cve_ecosystem ON vulnerabilities(ecosystem)",
 }
 
 // OpenDB opens a connection to SQLite at the given path (or :memory:) and applies the schema.

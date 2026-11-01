@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-11-02
+
+### Added
+- **Tech Stack Taxonomy & Classification Engine**:
+  - **Deterministic Classifier** (`internal/ingestion/classifier.go`): Autonomous classification module mapping vulnerabilities to high-level ecosystems (`KERNEL_OS`, `RUNTIME_LANG`, `LIB_PKG`, `ENTERPRISE_APP`, `NETWORK_HW`) and extracting normalized technology tags (`Linux Kernel`, `FreeBSD`, `Windows NT`, `XNU`, `C/C++`, `PHP`, `Python`, `Go`, `Rust`, `Java / Spring`, `OpenSSL`, `glibc`, `libcurl`, `SQLite`, `Apache`, `Nginx`, etc.).
+  - **Memory Corruption Inference**: Automatic detection of `C/C++` systems software flaw associations from memory safety CWEs (`CWE-787`, `CWE-416`, `CWE-120`, `CWE-476`).
+- **Database Schema & Query Upgrade**:
+  - Added `ecosystem TEXT DEFAULT ''` and `tech_tags TEXT DEFAULT '[]'` columns to `vulnerabilities` table.
+  - Created performance index `idx_cve_ecosystem ON vulnerabilities(ecosystem)`.
+  - Automated idempotent column migrations in `internal/database/db.go`.
+  - Added `ecosystem` and `tech_tag` query filters to `GetVulnerabilities()`.
+  - Enhanced `GetStats()` with 4 dedicated telemetry slices: `TopVendors`, `TopLanguages`, `TopPackages`, and `TopKernels`.
+- **Segmented Ecosystem Telemetry UI (Right Column)**:
+  - Transformed vendor metrics into an interactive 4-tab container: `[ VENDORS ]` | `[ LANGUAGES ]` | `[ LIBS & PKGS ]` | `[ KERNEL & OS ]`.
+  - Rendered capacity progress bars for every technology slice with instant click-to-filter capability.
+- **Dossier Technology Stack Integration (Center Column)**:
+  - Rendered detected technology pills (`[ STACK: C/C++ ]`, `[ CORE: Linux Kernel ]`, `[ PKG: OpenSSL ]`, `[ ECOSYSTEM: KERNEL_OS ]`) in the Dossier headline.
+  - Interactive pill click-to-filter support in live matrix.
+  - Enriched Attack Kill Chain Stage 01 with target technology stack details.
+
+## [1.3.0] - 2026-11-02
+
+### Added
+- **Interactive Analytics & Micro-Charts**:
+  - **Top Vendors Progress Bars**: Horizontal capacity bars illustrating relative vulnerability volume with instant vendor click-to-filter capability.
+  - **Attack Vector Segmented Ratio Bar**: Multi-segmented horizontal ratio bar (Sky Blue for Network/Remote, Amber for Local/Privesc, Slate for Physical/Other) with interactive segment and legend toggle filtering.
+  - **Interactive EPSS Probability Tiers**: Interactive filter buttons (`CRITICAL > 80%`, `HIGH 50% - 80%`, `LOW < 50%`) with active selection highlights and instantaneous SQL filtering.
+- **Dynamic Attack Kill Chain Visualizer**:
+  - 3-stage interactive Kill Chain Flow connecting Initial Access Vector (with authentication requirements), Exploit Mechanism (MITRE CWE classification and flaw analysis), and Blast Radius/Impact (RCE, Privilege Escalation, or pulsing `🚨 RANSOMWARE WEAPONIZED` alert).
+  - Subtle glowing directional connectors (`──►`) and responsive state transitions.
+- **Threat Activity Mini Heatmap**:
+  - 30-day discrete threat velocity heatmap strip located directly below the Top Telemetry HUD.
+  - Dynamic cell color intensity ranging from muted slate (`lvl-0`) to bright crimson (`lvl-crit`).
+  - Interactive tooltip displaying date, total count, and critical counts.
+  - Single-click date filtering with active selection indicator and quick reset control.
+- **Live Matrix Telemetry & Global Hotkeys**:
+  - Table EPSS micro progress bar with pulsing crimson indicator dot for critical scores (> 80%).
+  - Prominent crimson `[RANSOM]` badge in table rows for rapid scanning.
+  - Global hotkeys: `j`/`k` or `↑`/`↓` row navigation, `/` search focus, `p` tier switcher toggle, and `Esc` universal filter reset.
+
 ## [1.2.0] - 2026-11-02
 
 ### Added

@@ -8,6 +8,12 @@
     ransomwareOnly: false,
     search: '',
     sort: 'date_desc',
+    dateAdded: '',
+    vector: '',
+    epssTier: '',
+    ecosystem: '',
+    techTag: '',
+    activeEcoTab: 'vendors',
     page: 1,
     limit: 50,
     total: 0,
@@ -25,6 +31,13 @@
   const hudLastSync = document.getElementById('hudLastSync');
   const btnSync = document.getElementById('btnSync');
   const btnSyncText = document.getElementById('btnSyncText');
+
+  // Heatmap Elements
+  const heatmapCells = document.getElementById('heatmapCells');
+  const heatmapActiveFilter = document.getElementById('heatmapActiveFilter');
+  const heatmapFilterDate = document.getElementById('heatmapFilterDate');
+  const btnClearDateFilter = document.getElementById('btnClearDateFilter');
+  const heatmapTooltip = document.getElementById('heatmapTooltip');
 
   // Matrix Elements
   const matrixTableBody = document.getElementById('matrixTableBody');
@@ -44,6 +57,12 @@
   const dossierTargetSub = document.getElementById('dossierTargetSub');
   const btnCopyCve = document.getElementById('btnCopyCve');
   const dossierRansomwareBanner = document.getElementById('dossierRansomwareBanner');
+  const dossierTechPills = document.getElementById('dossierTechPills');
+
+  // Dynamic Kill Chain Elements
+  const dossierKillchainCard = document.getElementById('dossierKillchainCard');
+  const dossierKillchainFlow = document.getElementById('dossierKillchainFlow');
+  const killchainStatusTag = document.getElementById('killchainStatusTag');
 
   // Tier Navigation
   const tabTierHuman = document.getElementById('tabTierHuman');
@@ -79,11 +98,18 @@
   const btnNist = document.getElementById('btnNist');
 
   // Right Column Metrics Elements
+  const epssTierGroup = document.getElementById('epssTierGroup');
   const metricEpssCrit = document.getElementById('metricEpssCrit');
   const metricEpssHigh = document.getElementById('metricEpssHigh');
   const metricEpssLow = document.getElementById('metricEpssLow');
+  const ecoTabBar = document.getElementById('ecoTabBar');
+  const activeEcoSub = document.getElementById('activeEcoSub');
   const metricsVendorsList = document.getElementById('metricsVendorsList');
+  const vectorSegmentedBar = document.getElementById('vectorSegmentedBar');
   const metricsVectorList = document.getElementById('metricsVectorList');
+
+  // Cache for stats telemetry
+  let latestStats = null;
 
   // Toast
   const ctiToast = document.getElementById('ctiToast');
@@ -106,6 +132,7 @@
       const res = await fetch('/api/stats');
       if (!res.ok) return;
       const data = await res.json();
+      latestStats = data;
 
       hudTotal.textContent = formatNumber(data.total_records);
       hudCritical.textContent = formatNumber(data.critical_count);
@@ -113,36 +140,253 @@
       hudAvgEPSS.textContent = (data.avg_epss * 100).toFixed(1) + '%';
       hudLastSync.textContent = data.last_sync || 'NEVER';
 
-      // EPSS Distribution
+      // 1. EPSS Risk Tiers Filter Buttons
       metricEpssCrit.textContent = formatNumber(data.epss_critical);
       metricEpssHigh.textContent = formatNumber(data.epss_high);
       metricEpssLow.textContent = formatNumber(data.epss_low);
 
-      // Top Targeted Vendors Leaderboard
-      metricsVendorsList.innerHTML = '';
-      (data.top_vendors || []).forEach(v => {
-        const item = document.createElement('div');
-        item.className = 'vendor-item';
-        item.innerHTML = `<span>${v.vendor}</span> <span style="font-weight: 700; color: var(--cyan);">${formatNumber(v.count)}</span>`;
-        item.addEventListener('click', () => {
-          searchInput.value = v.vendor;
-          state.search = v.vendor;
-          state.page = 1;
-          fetchVulnerabilities();
+      if (epssTierGroup) {
+        epssTierGroup.querySelectorAll('.epss-tier-btn').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.tier === state.epssTier);
         });
-        metricsVendorsList.appendChild(item);
-      });
+      }
 
-      // Attack Vector Breakdown
-      metricsVectorList.innerHTML = '';
-      (data.vector_counts || []).forEach(vc => {
-        const item = document.createElement('div');
-        item.className = 'stat-row';
-        item.innerHTML = `<span style="font-size: 0.65rem; color: var(--text-dim);">${vc.vector}</span> <span style="font-weight: 700;">${formatNumber(vc.count)}</span>`;
-        metricsVectorList.appendChild(item);
+      // 2. Render Ecosystem Telemetry Slices (Vendors, Languages, Packages, Kernels)
+      renderEcosystemTelemetry();
+
+      // 3. Attack Vector Breakdown: Multi-Segmented Ratio Bar
+      const vectorCounts = data.vector_counts || [];
+      let netCount = 0, locCount = 0, othCount = 0;
+      vectorCounts.forEach(vc => {
+        const vUpper = (vc.vector || '').toUpperCase();
+        if (vUpper.includes('NETWORK') || vUpper.includes('REMOTE')) {
+          netCount += vc.count;
+        } else if (vUpper.includes('LOCAL') || vUpper.includes('PRIVESC')) {
+          locCount += vc.count;
+        } else {
+          othCount += vc.count;
+        }
       });
+      const vecTotal = Math.max(netCount + locCount + othCount, 1);
+      const netPct = Math.round((netCount / vecTotal) * 100);
+      const locPct = Math.round((locCount / vecTotal) * 100);
+      const othPct = Math.max(0, 100 - netPct - locPct);
+
+      if (vectorSegmentedBar) {
+        vectorSegmentedBar.innerHTML = `
+          <div class="segment-fill seg-network" style="width: ${netPct}%;" title="Network / Remote: ${formatNumber(netCount)} (${netPct}%)" data-vec="NETWORK"></div>
+          <div class="segment-fill seg-local" style="width: ${locPct}%;" title="Local / Privesc: ${formatNumber(locCount)} (${locPct}%)" data-vec="LOCAL"></div>
+          <div class="segment-fill seg-other" style="width: ${othPct}%;" title="Physical / Other: ${formatNumber(othCount)} (${othPct}%)" data-vec="PHYSICAL"></div>
+        `;
+      }
+
+      if (metricsVectorList) {
+        metricsVectorList.innerHTML = `
+          <div class="vector-pill ${state.vector === 'NETWORK' ? 'active' : ''}" data-vec="NETWORK">
+            <span class="legend-dot dot-network"></span>
+            <span class="legend-title">NETWORK</span>
+            <span class="legend-count">${netPct}%</span>
+          </div>
+          <div class="vector-pill ${state.vector === 'LOCAL' ? 'active' : ''}" data-vec="LOCAL">
+            <span class="legend-dot dot-local"></span>
+            <span class="legend-title">LOCAL</span>
+            <span class="legend-count">${locPct}%</span>
+          </div>
+          <div class="vector-pill ${state.vector === 'PHYSICAL' ? 'active' : ''}" data-vec="PHYSICAL">
+            <span class="legend-dot dot-other"></span>
+            <span class="legend-title">OTHER</span>
+            <span class="legend-count">${othPct}%</span>
+          </div>
+        `;
+      }
+
+      // 4. Threat Activity Mini Heatmap Strip (30 Days)
+      renderHeatmap(data.daily_activities || []);
     } catch (err) {
       console.error('Failed to load stats:', err);
+    }
+  }
+
+  function renderEcosystemTelemetry() {
+    if (!metricsVendorsList || !latestStats) return;
+    metricsVendorsList.innerHTML = '';
+
+    const tab = state.activeEcoTab || 'vendors';
+    let items = [];
+    let isVendorTab = false;
+
+    if (tab === 'vendors') {
+      isVendorTab = true;
+      items = (latestStats.top_vendors || []).map(v => ({ name: v.vendor, count: v.count }));
+      if (activeEcoSub) activeEcoSub.textContent = 'TOP VENDORS';
+    } else if (tab === 'languages') {
+      items = latestStats.top_languages || [];
+      if (activeEcoSub) activeEcoSub.textContent = 'RUNTIMES & LANGS';
+    } else if (tab === 'packages') {
+      items = latestStats.top_packages || [];
+      if (activeEcoSub) activeEcoSub.textContent = 'CORE PACKAGES';
+    } else if (tab === 'kernels') {
+      items = latestStats.top_kernels || [];
+      if (activeEcoSub) activeEcoSub.textContent = 'KERNELS & OS';
+    }
+
+    if (items.length === 0) {
+      metricsVendorsList.innerHTML = `
+        <div style="text-align: center; padding: 1.5rem 0.5rem; color: var(--text-dim); font-size: 0.72rem;">
+          NO TELEMETRY RECORDED FOR THIS SLICE
+        </div>
+      `;
+      return;
+    }
+
+    const maxCount = items.reduce((max, it) => Math.max(max, it.count), 1);
+
+    items.forEach(it => {
+      const row = document.createElement('div');
+      let isActive = false;
+      if (isVendorTab) {
+        isActive = state.search.toLowerCase() === it.name.toLowerCase();
+      } else {
+        isActive = state.techTag.toLowerCase() === it.name.toLowerCase();
+      }
+
+      row.className = `vendor-capacity-row ${isActive ? 'active' : ''}`;
+      const pct = Math.round((it.count / maxCount) * 100);
+      row.innerHTML = `
+        <div class="vendor-bar-bg" style="width: ${pct}%"></div>
+        <div class="vendor-label">
+          <span class="vendor-name">${escapeHtml(it.name)}</span>
+          <span class="vendor-count">${formatNumber(it.count)}</span>
+        </div>
+      `;
+
+      row.addEventListener('click', () => {
+        if (isVendorTab) {
+          if (state.search.toLowerCase() === it.name.toLowerCase()) {
+            state.search = '';
+            searchInput.value = '';
+          } else {
+            state.search = it.name;
+            searchInput.value = it.name;
+          }
+        } else {
+          if (state.techTag.toLowerCase() === it.name.toLowerCase()) {
+            state.techTag = '';
+          } else {
+            state.techTag = it.name;
+          }
+        }
+        state.page = 1;
+        fetchVulnerabilities();
+        renderEcosystemTelemetry();
+      });
+
+      metricsVendorsList.appendChild(row);
+    });
+  }
+
+  function renderHeatmap(activities) {
+    if (!heatmapCells) return;
+    heatmapCells.innerHTML = '';
+
+    const actMap = new Map();
+    activities.forEach(a => {
+      actMap.set(a.date, a);
+    });
+
+    // Build 30 discrete date cells
+    let dates = [];
+    if (activities.length >= 30) {
+      dates = activities.slice(-30).map(a => a.date);
+    } else {
+      let baseDate = new Date();
+      if (activities.length > 0) {
+        const latestStr = activities[activities.length - 1].date;
+        const parsed = new Date(latestStr);
+        if (!isNaN(parsed.getTime())) {
+          baseDate = parsed;
+        }
+      }
+      for (let i = 29; i >= 0; i--) {
+        const d = new Date(baseDate);
+        d.setDate(baseDate.getDate() - i);
+        dates.push(d.toISOString().slice(0, 10));
+      }
+    }
+
+    dates.forEach(dStr => {
+      const item = actMap.get(dStr) || { date: dStr, total_count: 0, critical_count: 0 };
+      const cell = document.createElement('div');
+      cell.className = 'heatmap-cell';
+      if (state.dateAdded === dStr) {
+        cell.classList.add('active');
+      }
+
+      // Determine level
+      if (item.total_count === 0) {
+        cell.classList.add('lvl-0');
+      } else if (item.critical_count > 0 || item.total_count >= 8) {
+        cell.classList.add('lvl-crit');
+      } else if (item.total_count >= 5) {
+        cell.classList.add('lvl-3');
+      } else if (item.total_count >= 3) {
+        cell.classList.add('lvl-2');
+      } else {
+        cell.classList.add('lvl-1');
+      }
+
+      cell.dataset.date = dStr;
+      cell.dataset.count = item.total_count;
+      cell.dataset.crit = item.critical_count;
+
+      // Tooltip events
+      cell.addEventListener('mouseenter', (e) => {
+        if (!heatmapTooltip) return;
+        heatmapTooltip.textContent = `Date: ${dStr} | Count: ${item.total_count} (Critical: ${item.critical_count})`;
+        heatmapTooltip.style.display = 'block';
+        updateTooltipPos(e);
+      });
+      cell.addEventListener('mousemove', (e) => {
+        updateTooltipPos(e);
+      });
+      cell.addEventListener('mouseleave', () => {
+        if (heatmapTooltip) heatmapTooltip.style.display = 'none';
+      });
+
+      // Click to filter by publication date
+      cell.addEventListener('click', () => {
+        if (state.dateAdded === dStr) {
+          state.dateAdded = '';
+        } else {
+          state.dateAdded = dStr;
+        }
+        state.page = 1;
+        updateHeatmapFilterIndicator();
+        fetchVulnerabilities();
+        renderHeatmap(activities);
+      });
+
+      heatmapCells.appendChild(cell);
+    });
+
+    updateHeatmapFilterIndicator();
+  }
+
+  function updateTooltipPos(e) {
+    if (!heatmapTooltip) return;
+    const x = e.clientX + 10;
+    const y = e.clientY - 30;
+    heatmapTooltip.style.left = `${x}px`;
+    heatmapTooltip.style.top = `${y}px`;
+  }
+
+  function updateHeatmapFilterIndicator() {
+    if (!heatmapActiveFilter) return;
+    if (state.dateAdded) {
+      heatmapActiveFilter.style.display = 'flex';
+      heatmapFilterDate.textContent = state.dateAdded;
+    } else {
+      heatmapActiveFilter.style.display = 'none';
     }
   }
 
@@ -165,6 +409,22 @@
         page: state.page,
         limit: state.limit,
       });
+
+      if (state.dateAdded) {
+        params.set('date', state.dateAdded);
+      }
+      if (state.vector) {
+        params.set('vector', state.vector);
+      }
+      if (state.epssTier) {
+        params.set('epss_tier', state.epssTier);
+      }
+      if (state.ecosystem) {
+        params.set('ecosystem', state.ecosystem);
+      }
+      if (state.techTag) {
+        params.set('tech', state.techTag);
+      }
 
       const res = await fetch(`/api/vulnerabilities?${params.toString()}`);
       if (!res.ok) throw new Error('API query failed');
@@ -227,11 +487,23 @@
         sevBadge = `<span class="c-badge c-badge-low">${item.score.toFixed(1)}</span>`;
       }
 
-      // EPSS display
+      // EPSS display with micro progress bar
       const epssPct = (item.epss_score * 100).toFixed(1) + '%';
+      const epssVal = Math.min(100, Math.max(0, item.epss_score * 100));
       let epssColor = 'var(--text-main)';
-      if (item.epss_score >= 0.80) epssColor = 'var(--crimson)';
-      else if (item.epss_score >= 0.50) epssColor = 'var(--orange)';
+      let epssLevelClass = 'low';
+      let isCrit = false;
+      if (item.epss_score >= 0.80) {
+        epssColor = 'var(--crimson)';
+        epssLevelClass = 'crit';
+        isCrit = true;
+      } else if (item.epss_score >= 0.50) {
+        epssColor = 'var(--amber)';
+        epssLevelClass = 'high';
+      } else {
+        epssColor = 'var(--emerald)';
+        epssLevelClass = 'low';
+      }
 
       // Ransomware badge
       const ransomBadge = item.ransomware_campaign === 1
@@ -251,7 +523,15 @@
         </td>
         <td><span class="c-badge c-badge-cwe">${escapeHtml(item.cwe_id || 'N/A')}</span></td>
         <td>${sevBadge}</td>
-        <td class="epss-cell" style="color: ${epssColor};">${epssPct}</td>
+        <td class="epss-cell">
+          <div class="epss-micro-wrap">
+            <span class="epss-micro-label" style="color: ${epssColor};">${epssPct}</span>
+            <div class="epss-micro-track">
+              <div class="epss-micro-fill ${epssLevelClass}" style="width: ${epssVal}%;"></div>
+            </div>
+            ${isCrit ? '<span class="epss-glow-dot" title="Critical EPSS Risk (>80%)"></span>' : ''}
+          </div>
+        </td>
         <td style="text-align: center;">${ransomBadge}</td>
       `;
 
@@ -314,12 +594,90 @@
     });
   }
 
+  function renderKillChain(item) {
+    if (!dossierKillchainFlow) return;
+
+    // Stage 1: Vector & Authentication Requirement
+    const vecRaw = item.vector || 'NETWORK / REMOTE';
+    let authReq = 'Unauthenticated Remote Access';
+    const cvss = (item.cvss_vector || '').toUpperCase();
+    if (cvss.includes('PR:N')) {
+      authReq = 'Pre-Auth / Zero Credentials Required';
+    } else if (cvss.includes('PR:L')) {
+      authReq = 'Low Privileged Account Required';
+    } else if (cvss.includes('PR:H')) {
+      authReq = 'High Privileged / Admin Access Required';
+    } else if (vecRaw.toUpperCase().includes('LOCAL')) {
+      authReq = 'Local Interactive Shell Access';
+    }
+
+    // Stage 2: MITRE CWE Flaw Mechanism
+    const cweId = item.cwe_id || 'CWE Flaw';
+    let flawDesc = item.cwe_description || 'Common software weakness categorized by MITRE.';
+    if (flawDesc.length > 70) {
+      flawDesc = flawDesc.slice(0, 68) + '...';
+    }
+
+    // Stage 3: System Impact & Blast Radius
+    let impactTitle = 'System Exposure & Tampering';
+    let impactDesc = 'Integrity, Confidentiality & Service Disruption';
+    if (item.score >= 9.0) {
+      impactTitle = 'Arbitrary Code Execution (RCE)';
+      impactDesc = 'Host Takeover & Full System Compromise';
+    } else if (vecRaw.toUpperCase().includes('LOCAL') || vecRaw.toUpperCase().includes('PRIVESC')) {
+      impactTitle = 'Root / Admin PrivEsc';
+      impactDesc = 'Local Kernel or System Security Bypass';
+    }
+
+    let ransomAlert = '';
+    if (item.ransomware_campaign === 1) {
+      ransomAlert = `<div class="killchain-ransom-tag">🚨 RANSOMWARE WEAPONIZED</div>`;
+      if (killchainStatusTag) {
+        killchainStatusTag.textContent = '🚨 RANSOMWARE ACTIVE';
+        killchainStatusTag.style.borderColor = 'var(--crimson)';
+        killchainStatusTag.style.color = 'var(--crimson)';
+      }
+    } else {
+      if (killchainStatusTag) {
+        killchainStatusTag.textContent = 'WEAPONIZED PATHWAY';
+        killchainStatusTag.style.borderColor = 'rgba(56, 189, 248, 0.3)';
+        killchainStatusTag.style.color = 'var(--sky-bright)';
+      }
+    }
+
+    let stackInfo = '';
+    if (item.tech_tags && item.tech_tags.length > 0) {
+      stackInfo = `<div style="margin-top: 4px; font-size: 0.62rem; color: var(--sky-bright);">Target: ${escapeHtml(item.tech_tags.join(', '))}</div>`;
+    }
+
+    dossierKillchainFlow.innerHTML = `
+      <div class="killchain-stage">
+        <span class="stage-tag">STAGE 01 // INITIAL ACCESS</span>
+        <div class="stage-title">${escapeHtml(vecRaw)}</div>
+        <div class="stage-desc">${escapeHtml(authReq)}</div>
+        ${stackInfo}
+      </div>
+      <div class="killchain-arrow">──►</div>
+      <div class="killchain-stage">
+        <span class="stage-tag">STAGE 02 // EXPLOIT MECHANISM</span>
+        <div class="stage-title mono-font">${escapeHtml(cweId)}</div>
+        <div class="stage-desc">${escapeHtml(flawDesc)}</div>
+      </div>
+      <div class="killchain-arrow">──►</div>
+      <div class="killchain-stage">
+        <span class="stage-tag">STAGE 03 // BLAST RADIUS</span>
+        <div class="stage-title">${escapeHtml(impactTitle)}</div>
+        <div class="stage-desc">${escapeHtml(impactDesc)}</div>
+        ${ransomAlert}
+      </div>
+    `;
+  }
+
   function displayDossier(item) {
     dossierCveId.textContent = item.cve_id;
     dossierTargetSub.textContent = `${item.product || 'Unknown Product'} (${item.vendor || 'Unknown Vendor'})`;
 
     // 1. 3 Instant Badges
-    // Urgency Badge
     const urg = item.urgency || 'SCHEDULE MAINTENANCE';
     badgeUrgency.textContent = `URGENCY: ${urg}`;
     if (urg.includes('IMMEDIATE')) {
@@ -330,13 +688,50 @@
       badgeUrgency.className = 'instant-badge badge-urgency blue';
     }
 
-    // In The Wild Badge
     const expStatus = item.exploit_status || 'ACTIVE IN WILD';
     badgeExploit.innerHTML = `🔥 ${escapeHtml(expStatus)}`;
 
-    // Action Badge
     const actSummary = item.action_summary || 'APPLY VENDOR MITIGATION';
     badgeAction.innerHTML = `⚡ ${escapeHtml(actSummary)}`;
+
+    // Detected Tech Stack & Ecosystem Pills
+    if (dossierTechPills) {
+      dossierTechPills.innerHTML = '';
+      if (item.ecosystem) {
+        const ecoPill = document.createElement('span');
+        ecoPill.className = 'tech-pill eco-pill';
+        ecoPill.textContent = `[ ECOSYSTEM: ${item.ecosystem} ]`;
+        dossierTechPills.appendChild(ecoPill);
+      }
+      const tags = Array.isArray(item.tech_tags) ? item.tech_tags : [];
+      tags.forEach(tag => {
+        const pill = document.createElement('span');
+        const tagLower = tag.toLowerCase();
+        if (tagLower.includes('kernel') || tagLower.includes('bsd') || tagLower.includes('windows nt') || tagLower.includes('xnu')) {
+          pill.className = 'tech-pill kernel-pill';
+          pill.textContent = `[ CORE: ${tag} ]`;
+        } else if (tagLower.includes('openssl') || tagLower.includes('glibc') || tagLower.includes('curl') || tagLower.includes('sqlite') || tagLower.includes('nginx') || tagLower.includes('apache')) {
+          pill.className = 'tech-pill lib-pill';
+          pill.textContent = `[ PKG: ${tag} ]`;
+        } else {
+          pill.className = 'tech-pill';
+          pill.textContent = `[ STACK: ${tag} ]`;
+        }
+        pill.style.cursor = 'pointer';
+        pill.title = `Click to filter by ${tag}`;
+        pill.addEventListener('click', () => {
+          if (state.techTag.toLowerCase() === tag.toLowerCase()) {
+            state.techTag = '';
+          } else {
+            state.techTag = tag;
+          }
+          state.page = 1;
+          fetchVulnerabilities();
+          renderEcosystemTelemetry();
+        });
+        dossierTechPills.appendChild(pill);
+      });
+    }
 
     // Ransomware alert banner
     if (item.ransomware_campaign === 1) {
@@ -349,13 +744,14 @@
       dossierRansomwareBanner.innerHTML = '';
     }
 
+    // Dynamic Attack Kill Chain Matrix
+    renderKillChain(item);
+
     // 2. Tier 1: Human-First Overview
-    // Executive Summary (TL;DR)
     dossierTldr.textContent = item.executive_summary || item.description || 'No executive summary available.';
 
-    // Action Checklist (Clean bulleted checklist with smart link pills)
+    // Action Checklist
     dossierChecklist.innerHTML = '';
-
     const primaryAction = item.required_action || 'Apply vendor security updates immediately.';
     const item1 = document.createElement('div');
     item1.className = 'checklist-item';
@@ -401,7 +797,7 @@
       dossierDueTag.textContent = 'MANDATORY ACTION';
     }
 
-    // Curated Threat Intelligence & Deep Reads (2-3 Intel Cards)
+    // Curated Threat Intelligence & Deep Reads
     dossierCuratedCards.innerHTML = '';
     const articles = (item.articles && item.articles.length > 0) ? item.articles : [
       {
@@ -444,7 +840,6 @@
     });
 
     // 3. Tier 2: Pro Inspector
-    // EPSS probability meter
     const epssPct = (item.epss_score * 100).toFixed(1);
     dossierEpssVal.textContent = epssPct + '%';
     dossierEpssBar.style.width = epssPct + '%';
@@ -462,20 +857,18 @@
       dossierEpssVal.style.color = 'var(--orange)';
     } else {
       dossierEpssRiskText.textContent = 'NOMINAL PROBABILITY';
-      dossierEpssRiskText.style.color = 'var(--cyan)';
-      dossierEpssVal.style.color = 'var(--cyan)';
+      dossierEpssRiskText.style.color = 'var(--sky-bright)';
+      dossierEpssVal.style.color = 'var(--sky-bright)';
     }
 
     dossierEpssPercentile.textContent = `Percentile: ${Math.round(item.epss_percentile * 100)}th`;
 
-    // Pro Metadata fields
     dossierVendor.textContent = item.vendor || '-';
     dossierProduct.textContent = item.product || '-';
 
-    // CWE with link and description
     if (item.cwe_id && item.cwe_id.startsWith('CWE-')) {
       const cweNum = item.cwe_id.replace('CWE-', '');
-      dossierCwe.innerHTML = `<a href="https://cwe.mitre.org/data/definitions/${cweNum}.html" target="_blank" style="color: var(--cyan); text-decoration: none;">${item.cwe_id} ↗</a>`;
+      dossierCwe.innerHTML = `<a href="https://cwe.mitre.org/data/definitions/${cweNum}.html" target="_blank" style="color: var(--sky-bright); text-decoration: none;">${item.cwe_id} ↗</a>`;
     } else {
       dossierCwe.textContent = item.cwe_id || 'N/A';
     }
@@ -494,6 +887,16 @@
     dossierCveId.textContent = '-';
     dossierTargetSub.textContent = 'Select a record from live matrix';
     dossierRansomwareBanner.innerHTML = '';
+    if (dossierTechPills) {
+      dossierTechPills.innerHTML = '';
+    }
+    if (dossierKillchainFlow) {
+      dossierKillchainFlow.innerHTML = `
+        <div style="width: 100%; text-align: center; padding: 0.5rem; color: var(--text-dim); font-size: 0.72rem;">
+          Select a vulnerability to map attack kill chain pathway
+        </div>
+      `;
+    }
     dossierTldr.textContent = 'Select any vulnerability from the threat matrix to inspect an executive plain-English summary.';
     dossierChecklist.innerHTML = '';
     dossierCuratedCards.innerHTML = '';
@@ -520,9 +923,41 @@
     btnNextPage.disabled = state.page >= state.totalPages;
   }
 
-  // Keyboard Navigation
+  // Global Keyboard Shortcuts
   window.addEventListener('keydown', (e) => {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+    const isInput = e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA';
+
+    if (e.key === 'Escape') {
+      if (isInput) {
+        e.target.blur();
+      }
+      // Reset all active filters
+      state.category = 'ALL';
+      state.severity = 'ALL';
+      state.ransomwareOnly = false;
+      state.search = '';
+      state.dateAdded = '';
+      state.vector = '';
+      state.epssTier = '';
+      state.ecosystem = '';
+      state.techTag = '';
+      state.page = 1;
+
+      searchInput.value = '';
+      severitySelect.value = 'ALL';
+      chipRansomware.classList.remove('active');
+      filterChips.querySelectorAll('.chip-btn:not(#chipRansomware)').forEach(b => {
+        b.classList.toggle('active', b.dataset.cat === 'ALL');
+      });
+      updateHeatmapFilterIndicator();
+
+      fetchVulnerabilities();
+      fetchStats();
+      showToast('RESET ALL ACTIVE FILTERS');
+      return;
+    }
+
+    if (isInput) return;
 
     if (e.key === 'ArrowDown' || e.key === 'j') {
       e.preventDefault();
@@ -538,6 +973,16 @@
       e.preventDefault();
       searchInput.focus();
       searchInput.select();
+    } else if (e.key === 'p' || e.key === 'P') {
+      e.preventDefault();
+      if (tabTierHuman && tabTierPro) {
+        const isHumanActive = tabTierHuman.classList.contains('active');
+        if (isHumanActive) {
+          tabTierPro.click();
+        } else {
+          tabTierHuman.click();
+        }
+      }
     }
   });
 
@@ -576,6 +1021,80 @@
 
     fetchVulnerabilities();
   });
+
+  // EPSS Tier Filter Click Handler
+  if (epssTierGroup) {
+    epssTierGroup.addEventListener('click', (e) => {
+      const btn = e.target.closest('.epss-tier-btn');
+      if (!btn) return;
+      const tier = btn.dataset.tier;
+      if (state.epssTier === tier) {
+        state.epssTier = '';
+      } else {
+        state.epssTier = tier;
+      }
+      state.page = 1;
+      fetchVulnerabilities();
+      fetchStats();
+    });
+  }
+
+  // Multi-Ecosystem Telemetry Tab Switching
+  if (ecoTabBar) {
+    ecoTabBar.addEventListener('click', (e) => {
+      const btn = e.target.closest('.eco-tab-btn');
+      if (!btn) return;
+      const tab = btn.dataset.tab;
+      if (!tab || state.activeEcoTab === tab) return;
+
+      state.activeEcoTab = tab;
+      ecoTabBar.querySelectorAll('.eco-tab-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.tab === tab);
+      });
+      renderEcosystemTelemetry();
+    });
+  }
+
+  // Attack Vector Filter Handling
+  function handleVectorClick(vec) {
+    if (state.vector === vec) {
+      state.vector = '';
+    } else {
+      state.vector = vec;
+    }
+    state.page = 1;
+    fetchVulnerabilities();
+    fetchStats();
+  }
+
+  if (vectorSegmentedBar) {
+    vectorSegmentedBar.addEventListener('click', (e) => {
+      const seg = e.target.closest('.segment-fill');
+      if (seg && seg.dataset.vec) {
+        handleVectorClick(seg.dataset.vec);
+      }
+    });
+  }
+
+  if (metricsVectorList) {
+    metricsVectorList.addEventListener('click', (e) => {
+      const pill = e.target.closest('.vector-pill');
+      if (pill && pill.dataset.vec) {
+        handleVectorClick(pill.dataset.vec);
+      }
+    });
+  }
+
+  // Clear Date Filter
+  if (btnClearDateFilter) {
+    btnClearDateFilter.addEventListener('click', () => {
+      state.dateAdded = '';
+      state.page = 1;
+      updateHeatmapFilterIndicator();
+      fetchVulnerabilities();
+      fetchStats();
+    });
+  }
 
   // Search Input with Debounce
   let searchTimer;

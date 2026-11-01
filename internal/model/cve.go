@@ -45,6 +45,15 @@ type CuratedArticle struct {
 	Badge    string `json:"badge"`    // "📰 News", "🔬 Deep Dive", "🛠️ Advisory"
 }
 
+// Structured Ecosystem Taxonomy Constants
+const (
+	EcosystemKernelOS      = "KERNEL_OS"
+	EcosystemRuntimeLang   = "RUNTIME_LANG"
+	EcosystemLibPkg        = "LIB_PKG"
+	EcosystemEnterpriseApp = "ENTERPRISE_APP"
+	EcosystemNetworkHW     = "NETWORK_HW"
+)
+
 // Vulnerability represents an enriched threat intelligence record.
 type Vulnerability struct {
 	CVEID              string           `json:"cve_id"`
@@ -72,6 +81,8 @@ type Vulnerability struct {
 	ActionSummary      string           `json:"action_summary"` // "PATCH IMMEDIATELY", "ISOLATE PORT", "APPLY VENDOR MITIGATION", "TEMPORARY WORKAROUND"
 	CWEDescription     string           `json:"cwe_description"`
 	Articles           []CuratedArticle `json:"articles"`
+	Ecosystem          string           `json:"ecosystem"`           // e.g. "KERNEL_OS", "RUNTIME_LANG", "LIB_PKG", "ENTERPRISE_APP", "NETWORK_HW"
+	TechTags           []string         `json:"tech_tags,omitempty"` // e.g. ["C/C++", "Linux Kernel"]
 	CreatedAt          time.Time        `json:"created_at"`
 }
 
@@ -79,6 +90,12 @@ type Vulnerability struct {
 type VendorCount struct {
 	Vendor string `json:"vendor"`
 	Count  int    `json:"count"`
+}
+
+// TechCount represents count of vulnerabilities for a language, package, or kernel.
+type TechCount struct {
+	Name  string `json:"name"`
+	Count int    `json:"count"`
 }
 
 // CategoryCount represents count per category.
@@ -91,6 +108,13 @@ type CategoryCount struct {
 type VectorCount struct {
 	Vector string `json:"vector"`
 	Count  int    `json:"count"`
+}
+
+// DailyActivity represents vulnerability activity metrics for a specific date.
+type DailyActivity struct {
+	Date          string `json:"date"`
+	TotalCount    int    `json:"total_count"`
+	CriticalCount int    `json:"critical_count"`
 }
 
 // Stats holds aggregate telemetry counters for the CTI HUD and Dashboard.
@@ -107,6 +131,10 @@ type Stats struct {
 	EPSSLow         int             `json:"epss_low"`      // < 0.50
 	LastSync        string          `json:"last_sync"`
 	TopVendors      []VendorCount   `json:"top_vendors,omitempty"`
+	TopLanguages    []TechCount     `json:"top_languages,omitempty"`
+	TopPackages     []TechCount     `json:"top_packages,omitempty"`
+	TopKernels      []TechCount     `json:"top_kernels,omitempty"`
 	CategoryCounts  []CategoryCount `json:"category_counts,omitempty"`
 	VectorCounts    []VectorCount   `json:"vector_counts,omitempty"`
+	DailyActivities []DailyActivity `json:"daily_activities,omitempty"`
 }

@@ -45,6 +45,8 @@ func TestRepository_UpsertAndQuery(t *testing.T) {
 			RansomwareCampaign: 0,
 			CVSSVector:         "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
 			RemediationNotes:   "Due: 2024-01-30",
+			Ecosystem:          model.EcosystemKernelOS,
+			TechTags:           []string{"Linux Kernel", "C/C++"},
 			CreatedAt:          time.Now().UTC(),
 		},
 		{
@@ -74,6 +76,8 @@ func TestRepository_UpsertAndQuery(t *testing.T) {
 			Articles: []model.CuratedArticle{
 				{Title: "BleepingComputer: Fortinet Exploit", URL: "https://bleepingcomputer.com/fortinet", Domain: "bleepingcomputer.com", Category: "NEWS", Badge: "📰 News"},
 			},
+			Ecosystem: model.EcosystemNetworkHW,
+			TechTags:  []string{"Network Infrastructure"},
 			CreatedAt: time.Now().UTC(),
 		},
 		{
@@ -95,6 +99,8 @@ func TestRepository_UpsertAndQuery(t *testing.T) {
 			RansomwareCampaign: 1,
 			CVSSVector:         "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
 			RemediationNotes:   "Due: 2024-01-29",
+			Ecosystem:          model.EcosystemLibPkg,
+			TechTags:           []string{"Apache", "C/C++"},
 			CreatedAt:          time.Now().UTC(),
 		},
 	}
@@ -172,7 +178,62 @@ func TestRepository_UpsertAndQuery(t *testing.T) {
 		t.Errorf("expected search result for 'fortinet' to yield CVE-2024-0002, got %v", searchItems)
 	}
 
-	// 7. Upsert idempotency and update
+	// 7. Filter by DateAdded
+	dateItems, err := repo.GetVulnerabilities(ctx, database.FilterOptions{
+		DateAdded: "2024-01-15",
+	})
+	if err != nil {
+		t.Fatalf("failed to query by date: %v", err)
+	}
+	if len(dateItems) != 1 || dateItems[0].CVEID != "CVE-2024-0002" {
+		t.Errorf("expected 1 item for date 2024-01-15, got %v", dateItems)
+	}
+
+	// 8. Filter by Vector
+	vecItems, err := repo.GetVulnerabilities(ctx, database.FilterOptions{
+		Vector: "LOCAL",
+	})
+	if err != nil {
+		t.Fatalf("failed to query by vector: %v", err)
+	}
+	if len(vecItems) != 1 || vecItems[0].CVEID != "CVE-2024-0001" {
+		t.Errorf("expected 1 item for LOCAL vector, got %v", vecItems)
+	}
+
+	// 9. Filter by EPSSTier
+	critEpssItems, err := repo.GetVulnerabilities(ctx, database.FilterOptions{
+		EPSSTier: "CRITICAL",
+	})
+	if err != nil {
+		t.Fatalf("failed to query by epss tier: %v", err)
+	}
+	if len(critEpssItems) != 1 || critEpssItems[0].CVEID != "CVE-2024-0002" {
+		t.Errorf("expected 1 critical EPSS item (CVE-2024-0002), got %v", critEpssItems)
+	}
+
+	// 10. Filter by Ecosystem
+	ecoItems, err := repo.GetVulnerabilities(ctx, database.FilterOptions{
+		Ecosystem: model.EcosystemKernelOS,
+	})
+	if err != nil {
+		t.Fatalf("failed to query by ecosystem: %v", err)
+	}
+	if len(ecoItems) != 1 || ecoItems[0].CVEID != "CVE-2024-0001" {
+		t.Errorf("expected 1 item for KERNEL_OS ecosystem, got %v", ecoItems)
+	}
+
+	// 11. Filter by TechTag
+	techItems, err := repo.GetVulnerabilities(ctx, database.FilterOptions{
+		TechTag: "Apache",
+	})
+	if err != nil {
+		t.Fatalf("failed to query by tech tag: %v", err)
+	}
+	if len(techItems) != 1 || techItems[0].CVEID != "CVE-2024-0003" {
+		t.Errorf("expected 1 item for tech tag 'Apache', got %v", techItems)
+	}
+
+	// 12. Upsert idempotency and update
 	updatedItem := testItems[0]
 	updatedItem.Title = "Updated Title"
 	if err := repo.UpsertBatch(ctx, []model.Vulnerability{updatedItem}); err != nil {
@@ -218,11 +279,11 @@ func TestRepository_StatsAndSyncMetadata(t *testing.T) {
 		t.Errorf("expected sync time %q, got %q (err: %v)", testTime, syncTime, err)
 	}
 
-	// Insert items with varying scores
+	// Insert items with varying scores and tech tags
 	items := []model.Vulnerability{
-		{CVEID: "CVE-1", Vendor: "V1", Product: "P1", Title: "T1", Description: "D1", DateAdded: "2024-01-01", Category: model.CategoryOther, Severity: model.SeverityCritical, Score: 9.8, Vector: model.VectorNetworkRemote, Source: "CISA", RansomwareCampaign: 1, EPSSScore: 0.90},
-		{CVEID: "CVE-2", Vendor: "V2", Product: "P2", Title: "T2", Description: "D2", DateAdded: "2024-01-02", Category: model.CategoryOther, Severity: model.SeverityHigh, Score: 7.5, Vector: model.VectorNetworkRemote, Source: "CISA", RansomwareCampaign: 1, EPSSScore: 0.60},
-		{CVEID: "CVE-3", Vendor: "V3", Product: "P3", Title: "T3", Description: "D3", DateAdded: "2024-01-03", Category: model.CategoryOther, Severity: model.SeverityMedium, Score: 5.5, Vector: model.VectorLocalInternal, Source: "CISA", RansomwareCampaign: 0, EPSSScore: 0.30},
+		{CVEID: "CVE-1", Vendor: "V1", Product: "P1", Title: "T1", Description: "D1", DateAdded: "2024-01-01", Category: model.CategoryOther, Severity: model.SeverityCritical, Score: 9.8, Vector: model.VectorNetworkRemote, Source: "CISA", RansomwareCampaign: 1, EPSSScore: 0.90, Ecosystem: model.EcosystemKernelOS, TechTags: []string{"Linux Kernel", "C/C++"}},
+		{CVEID: "CVE-2", Vendor: "V2", Product: "P2", Title: "T2", Description: "D2", DateAdded: "2024-01-02", Category: model.CategoryOther, Severity: model.SeverityHigh, Score: 7.5, Vector: model.VectorNetworkRemote, Source: "CISA", RansomwareCampaign: 1, EPSSScore: 0.60, Ecosystem: model.EcosystemLibPkg, TechTags: []string{"OpenSSL", "C/C++"}},
+		{CVEID: "CVE-3", Vendor: "V3", Product: "P3", Title: "T3", Description: "D3", DateAdded: "2024-01-03", Category: model.CategoryOther, Severity: model.SeverityMedium, Score: 5.5, Vector: model.VectorLocalInternal, Source: "CISA", RansomwareCampaign: 0, EPSSScore: 0.30, Ecosystem: model.EcosystemRuntimeLang, TechTags: []string{"Python"}},
 	}
 	if err := repo.UpsertBatch(ctx, items); err != nil {
 		t.Fatalf("failed to upsert batch: %v", err)
@@ -259,5 +320,18 @@ func TestRepository_StatsAndSyncMetadata(t *testing.T) {
 	}
 	if stats.LastSync != testTime {
 		t.Errorf("expected last sync %q, got %q", testTime, stats.LastSync)
+	}
+	if len(stats.DailyActivities) != 3 {
+		t.Errorf("expected 3 daily activity entries, got %d", len(stats.DailyActivities))
+	}
+	// Verify Multi-Ecosystem Telemetry Slices
+	if len(stats.TopLanguages) == 0 || stats.TopLanguages[0].Name != "C/C++" {
+		t.Errorf("expected TopLanguages to contain C/C++, got %v", stats.TopLanguages)
+	}
+	if len(stats.TopPackages) == 0 || stats.TopPackages[0].Name != "OpenSSL" {
+		t.Errorf("expected TopPackages to contain OpenSSL, got %v", stats.TopPackages)
+	}
+	if len(stats.TopKernels) == 0 || stats.TopKernels[0].Name != "Linux Kernel" {
+		t.Errorf("expected TopKernels to contain Linux Kernel, got %v", stats.TopKernels)
 	}
 }

@@ -51,6 +51,32 @@
     </div>
   </header>
 
+  <!-- Threat Activity Mini Heatmap Strip (30 Days) -->
+  <section class="heatmap-strip">
+    <div class="heatmap-meta">
+      <div class="heatmap-title-wrap">
+        <span class="heatmap-label">30-DAY THREAT VELOCITY HEATMAP</span>
+        <span class="heatmap-sub">CLICK CELL TO FILTER BY PUBLICATION DATE</span>
+      </div>
+      <div id="heatmapActiveFilter" class="heatmap-filter-indicator" style="display: none;">
+        <span>DATE: <strong id="heatmapFilterDate" class="mono-font">-</strong></span>
+        <button class="heatmap-clear-btn" id="btnClearDateFilter" title="Clear Date Filter">✕</button>
+      </div>
+    </div>
+    <div class="heatmap-cells" id="heatmapCells">
+      <!-- 30 discrete date cells generated dynamically -->
+    </div>
+    <div class="heatmap-legend">
+      <span>0</span>
+      <span class="legend-cell lvl-0"></span>
+      <span class="legend-cell lvl-1"></span>
+      <span class="legend-cell lvl-2"></span>
+      <span class="legend-cell lvl-3"></span>
+      <span class="legend-cell lvl-crit"></span>
+      <span>HIGH / CRIT</span>
+    </div>
+  </section>
+
   <!-- Three-Column CTI Workstation -->
   <main class="cti-workstation">
 
@@ -99,8 +125,8 @@
               <th>TARGET SYSTEM</th>
               <th style="width: 80px;">CWE</th>
               <th style="width: 75px;">CVSS</th>
-              <th style="width: 75px;">EPSS</th>
-              <th style="width: 60px; text-align: center;">RANSOM</th>
+              <th style="width: 85px;">EPSS</th>
+              <th style="width: 65px; text-align: center;">RANSOM</th>
             </tr>
           </thead>
           <tbody id="matrixTableBody">
@@ -113,7 +139,7 @@
         <span id="paginationSummary">Showing 0-0 of 0</span>
         <div style="display: flex; gap: 0.35rem; align-items: center;">
           <button class="cti-btn" id="btnPrevPage" style="padding: 0.2rem 0.5rem; font-size: 0.65rem;" disabled>◄ PREV</button>
-          <span id="pageIndicator" style="padding: 0 0.4rem; color: var(--cyan);">PAGE 1</span>
+          <span id="pageIndicator" style="padding: 0 0.4rem; color: var(--sky-bright);">PAGE 1</span>
           <button class="cti-btn" id="btnNextPage" style="padding: 0.2rem 0.5rem; font-size: 0.65rem;" disabled>NEXT ►</button>
         </div>
       </div>
@@ -148,7 +174,23 @@
             <span class="instant-badge badge-action" id="badgeAction">⚡ -</span>
           </div>
 
+          <!-- Detected Tech Stack & Ecosystem Pills -->
+          <div class="tech-stack-pills" id="dossierTechPills">
+            <!-- Dynamically populated -->
+          </div>
+
           <div id="dossierRansomwareBanner"></div>
+        </div>
+
+        <!-- Dynamic Attack Kill Chain Visualizer -->
+        <div class="killchain-card" id="dossierKillchainCard">
+          <div class="killchain-header">
+            <span>⚡ ATTACK KILL CHAIN MATRIX</span>
+            <span class="killchain-tag" id="killchainStatusTag">WEAPONIZED PATHWAY</span>
+          </div>
+          <div class="killchain-flow" id="dossierKillchainFlow">
+            <!-- 3 stages dynamically populated -->
+          </div>
         </div>
 
         <!-- TIER 1: HUMAN-FIRST OVERVIEW (Default) -->
@@ -193,7 +235,7 @@
           <div class="epss-container">
             <div style="display: flex; justify-content: space-between; align-items: center;">
               <span class="field-label">EXPLOIT PREDICTION SCORING (EPSS)</span>
-              <span id="dossierEpssVal" style="font-weight: 800; color: var(--orange);">0.0%</span>
+              <span id="dossierEpssVal" style="font-weight: 800; color: var(--amber);">0.0%</span>
             </div>
             <div class="epss-bar-track">
               <div class="epss-bar-fill" id="dossierEpssBar" style="width: 0%;"></div>
@@ -266,42 +308,76 @@
       </div>
 
       <div class="metrics-content">
-        <!-- EPSS Risk Tiers -->
+        <!-- EPSS Risk Tiers Filter Buttons -->
         <div class="metric-section">
-          <div class="section-head">EPSS RISK PROBABILITY TIERS</div>
-          <div class="stat-row">
-            <span style="color: var(--crimson);">CRITICAL (> 80%)</span>
-            <span id="metricEpssCrit" style="font-weight: 700;">0</span>
+          <div class="section-head">
+            <span>EPSS PROBABILITY TIERS</span>
+            <span class="section-sub">CLICK TO FILTER</span>
           </div>
-          <div class="stat-row">
-            <span style="color: var(--orange);">HIGH (50% - 80%)</span>
-            <span id="metricEpssHigh" style="font-weight: 700;">0</span>
-          </div>
-          <div class="stat-row">
-            <span style="color: var(--emerald);">LOW (< 50%)</span>
-            <span id="metricEpssLow" style="font-weight: 700;">0</span>
+          <div class="epss-tier-group" id="epssTierGroup">
+            <button class="epss-tier-btn" data-tier="CRITICAL">
+              <div class="tier-btn-left">
+                <span class="tier-dot crit"></span>
+                <span class="tier-name">CRITICAL (&gt; 80%)</span>
+              </div>
+              <span class="tier-count mono-font" id="metricEpssCrit">0</span>
+            </button>
+            <button class="epss-tier-btn" data-tier="HIGH">
+              <div class="tier-btn-left">
+                <span class="tier-dot high"></span>
+                <span class="tier-name">HIGH (50% - 80%)</span>
+              </div>
+              <span class="tier-count mono-font" id="metricEpssHigh">0</span>
+            </button>
+            <button class="epss-tier-btn" data-tier="LOW">
+              <div class="tier-btn-left">
+                <span class="tier-dot low"></span>
+                <span class="tier-name">LOW (&lt; 50%)</span>
+              </div>
+              <span class="tier-count mono-font" id="metricEpssLow">0</span>
+            </button>
           </div>
         </div>
 
-        <!-- Top Exploited Vendors -->
+        <!-- Multi-Ecosystem Telemetry (4 Tabs) -->
         <div class="metric-section">
-          <div class="section-head">TOP TARGETED VENDORS</div>
-          <div id="metricsVendorsList" style="display: flex; flex-direction: column; gap: 0.35rem;">
-            <!-- Dynamically populated -->
+          <div class="section-head">
+            <span>TECH STACK TELEMETRY</span>
+            <span class="section-sub" id="activeEcoSub">CAPACITY BARS</span>
+          </div>
+          <div class="eco-tab-bar" id="ecoTabBar">
+            <button class="eco-tab-btn active" data-tab="vendors">VENDORS</button>
+            <button class="eco-tab-btn" data-tab="languages">LANGUAGES</button>
+            <button class="eco-tab-btn" data-tab="packages">LIBS &amp; PKGS</button>
+            <button class="eco-tab-btn" data-tab="kernels">KERNEL &amp; OS</button>
+          </div>
+          <div id="metricsVendorsList" class="vendor-capacity-list">
+            <!-- Dynamically populated based on active tab -->
           </div>
         </div>
 
-        <!-- Attack Vector Breakdown -->
+        <!-- Attack Vector Segmented Ratio Bar -->
         <div class="metric-section">
-          <div class="section-head">ATTACK VECTOR RATIO</div>
-          <div id="metricsVectorList" style="display: flex; flex-direction: column; gap: 0.35rem;">
-            <!-- Dynamically populated -->
+          <div class="section-head">
+            <span>ATTACK VECTOR RATIO</span>
+            <span class="section-sub">SEGMENTED</span>
+          </div>
+          <div class="segmented-ratio-wrap">
+            <div class="segmented-ratio-bar" id="vectorSegmentedBar">
+              <!-- Dynamically populated segments -->
+            </div>
+            <div class="vector-legend" id="metricsVectorList">
+              <!-- Dynamically populated vector legend pills -->
+            </div>
           </div>
         </div>
       </div>
     </section>
 
   </main>
+
+  <!-- Heatmap Tooltip -->
+  <div class="heatmap-tooltip" id="heatmapTooltip"></div>
 
   <!-- Industrial Toast -->
   <div class="cti-toast" id="ctiToast">ACTION COMPLETED</div>

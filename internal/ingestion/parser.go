@@ -128,6 +128,9 @@ func ClassifyRawKEV(raw RawKEVItem, timestamp time.Time) model.Vulnerability {
 	// Curated Articles (2-3 high-value external references)
 	articles := generateCuratedArticles(cveID, raw.VendorProject, raw.Product, raw.Notes)
 
+	// Tech Stack Taxonomy & Ecosystem Classification
+	ecosystem, techTags := ClassifyTaxonomy(raw.VendorProject, raw.Product, raw.ShortDescription, cweID)
+
 	return model.Vulnerability{
 		CVEID:              cveID,
 		Vendor:             strings.TrimSpace(raw.VendorProject),
@@ -154,6 +157,8 @@ func ClassifyRawKEV(raw RawKEVItem, timestamp time.Time) model.Vulnerability {
 		ActionSummary:      actionSummary,
 		CWEDescription:     cweDesc,
 		Articles:           articles,
+		Ecosystem:          ecosystem,
+		TechTags:           techTags,
 		CreatedAt:          timestamp,
 	}
 }

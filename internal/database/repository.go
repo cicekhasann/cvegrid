@@ -21,6 +21,11 @@ type FilterOptions struct {
 	SortBy         string // date_desc, date_asc, score_desc, score_asc, epss_desc, vendor_asc
 	Limit          int
 	Offset         int
+	DateAdded      string
+	Vector         string
+	EPSSTier       string // CRITICAL, HIGH, LOW
+	Ecosystem      string // KERNEL_OS, RUNTIME_LANG, LIB_PKG, ENTERPRISE_APP, NETWORK_HW
+	TechTag        string // e.g. "C/C++", "Linux Kernel", "PHP", "OpenSSL"
 }
 
 // Repository handles thread-safe data operations on the vulnerabilities store.
@@ -59,8 +64,8 @@ func (r *Repository) UpsertBatch(ctx context.Context, items []model.Vulnerabilit
 			epss_percentile, ransomware_campaign, cvss_vector,
 			remediation_notes, executive_summary, urgency,
 			exploit_status, action_summary, cwe_description,
-			articles_json, created_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			articles_json, ecosystem, tech_tags, created_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(cve_id) DO UPDATE SET
 			vendor = excluded.vendor,
 			product = excluded.product,
@@ -84,7 +89,9 @@ func (r *Repository) UpsertBatch(ctx context.Context, items []model.Vulnerabilit
 			exploit_status = excluded.exploit_status,
 			action_summary = excluded.action_summary,
 			cwe_description = excluded.cwe_description,
-			articles_json = excluded.articles_json
+			articles_json = excluded.articles_json,
+			ecosystem = excluded.ecosystem,
+			tech_tags = excluded.tech_tags
 	`)
 	if err != nil {
 		return fmt.Errorf("failed to prepare upsert statement: %w", err)
@@ -105,6 +112,11 @@ func (r *Repository) UpsertBatch(ctx context.Context, items []model.Vulnerabilit
 		articlesBytes, _ := json.Marshal(item.Articles)
 		if len(articlesBytes) == 0 {
 			articlesBytes = []byte("[]")
+		}
+
+		techTagsBytes, _ := json.Marshal(item.TechTags)
+		if len(techTagsBytes) == 0 {
+			techTagsBytes = []byte("[]")
 		}
 
 		_, err := stmt.ExecContext(ctx,
@@ -132,6 +144,8 @@ func (r *Repository) UpsertBatch(ctx context.Context, items []model.Vulnerabilit
 			item.ActionSummary,
 			item.CWEDescription,
 			string(articlesBytes),
+			item.Ecosystem,
+			string(techTagsBytes),
 			createdAt,
 		)
 		if err != nil {
@@ -169,6 +183,37 @@ func buildFilterQuery(filter FilterOptions) (string, []any) {
 		likePattern := "%" + search + "%"
 		conditions = append(conditions, "(cve_id LIKE ? OR vendor LIKE ? OR product LIKE ? OR title LIKE ? OR cwe_id LIKE ?)")
 		args = append(args, likePattern, likePattern, likePattern, likePattern, likePattern)
+	}
+
+	if filter.DateAdded != "" {
+		conditions = append(conditions, "date_added = ?")
+		args = append(args, filter.DateAdded)
+	}
+
+	if filter.Vector != "" {
+		conditions = append(conditions, "UPPER(vector) LIKE ?")
+		args = append(args, "%"+strings.ToUpper(filter.Vector)+"%")
+	}
+
+	if filter.EPSSTier != "" {
+		switch strings.ToUpper(filter.EPSSTier) {
+		case "CRITICAL":
+			conditions = append(conditions, "epss_score >= 0.80")
+		case "HIGH":
+			conditions = append(conditions, "epss_score >= 0.50 AND epss_score < 0.80")
+		case "LOW":
+			conditions = append(conditions, "epss_score < 0.50")
+		}
+	}
+
+	if filter.Ecosystem != "" && filter.Ecosystem != "ALL" {
+		conditions = append(conditions, "ecosystem = ?")
+		args = append(args, strings.ToUpper(filter.Ecosystem))
+	}
+
+	if filter.TechTag != "" && filter.TechTag != "ALL" {
+		conditions = append(conditions, "tech_tags LIKE ?")
+		args = append(args, "%"+filter.TechTag+"%")
 	}
 
 	whereClause := ""
@@ -223,7 +268,7 @@ func (r *Repository) GetVulnerabilities(ctx context.Context, filter FilterOption
 			cwe_id, epss_score, epss_percentile, ransomware_campaign,
 			cvss_vector, remediation_notes, executive_summary, urgency,
 			exploit_status, action_summary, cwe_description, articles_json,
-			created_at
+			ecosystem, tech_tags, created_at
 		FROM vulnerabilities` + whereClause + orderClause
 
 	if filter.Limit > 0 {
@@ -242,7 +287,7 @@ func (r *Repository) GetVulnerabilities(ctx context.Context, filter FilterOption
 	var result []model.Vulnerability
 	for rows.Next() {
 		var item model.Vulnerability
-		var cat, sev, vec, articlesJSON string
+		var cat, sev, vec, articlesJSON, techTagsJSON string
 		err := rows.Scan(
 			&item.CVEID,
 			&item.Vendor,
@@ -268,6 +313,8 @@ func (r *Repository) GetVulnerabilities(ctx context.Context, filter FilterOption
 			&item.ActionSummary,
 			&item.CWEDescription,
 			&articlesJSON,
+			&item.Ecosystem,
+			&techTagsJSON,
 			&item.CreatedAt,
 		)
 		if err != nil {
@@ -278,6 +325,12 @@ func (r *Repository) GetVulnerabilities(ctx context.Context, filter FilterOption
 		item.Vector = model.Vector(vec)
 		if articlesJSON != "" && articlesJSON != "[]" {
 			_ = json.Unmarshal([]byte(articlesJSON), &item.Articles)
+		}
+		if techTagsJSON != "" && techTagsJSON != "[]" {
+			_ = json.Unmarshal([]byte(techTagsJSON), &item.TechTags)
+		}
+		if item.TechTags == nil {
+			item.TechTags = []string{}
 		}
 		result = append(result, item)
 	}
@@ -379,6 +432,39 @@ func (r *Repository) GetStats(ctx context.Context) (model.Stats, error) {
 		}
 	}
 
+	// 4 Multi-Ecosystem Telemetry Slices
+	langCandidates := []string{"C/C++", "PHP", "Java", "Python", "Go", "Rust", "JavaScript", ".NET", "Ruby"}
+	pkgCandidates := []string{"OpenSSL", "glibc", "libcurl", "Nginx", "Apache", "SQLite", "BusyBox", "BIND 9", "Log4j", "sudo", "OpenSSH", "libxml2", "zlib"}
+	kernelCandidates := []string{"Linux Kernel", "FreeBSD", "Windows NT", "XNU", "Android Kernel", "KVM/QEMU"}
+
+	stats.TopLanguages = queryTechSlice(ctx, r.db, langCandidates)
+	stats.TopPackages = queryTechSlice(ctx, r.db, pkgCandidates)
+	stats.TopKernels = queryTechSlice(ctx, r.db, kernelCandidates)
+
+	// 30 Days Threat Activity Heatmap
+	dailyRows, err := r.db.QueryContext(ctx, `
+		SELECT date_added, COUNT(*), COALESCE(SUM(CASE WHEN score >= 9.0 THEN 1 ELSE 0 END), 0)
+		FROM vulnerabilities
+		WHERE date_added != ''
+		GROUP BY date_added
+		ORDER BY date_added DESC
+		LIMIT 30
+	`)
+	if err == nil {
+		defer dailyRows.Close()
+		var temp []model.DailyActivity
+		for dailyRows.Next() {
+			var da model.DailyActivity
+			if err := dailyRows.Scan(&da.Date, &da.TotalCount, &da.CriticalCount); err == nil {
+				temp = append(temp, da)
+			}
+		}
+		// Reverse to chronological order (oldest to newest)
+		for i := len(temp) - 1; i >= 0; i-- {
+			stats.DailyActivities = append(stats.DailyActivities, temp[i])
+		}
+	}
+
 	lastSync, _ := r.GetLastSync(ctx)
 	stats.LastSync = lastSync
 
@@ -432,3 +518,66 @@ func (r *Repository) Count(ctx ...context.Context) int {
 	_ = r.db.QueryRowContext(c, "SELECT COUNT(*) FROM vulnerabilities").Scan(&count)
 	return count
 }
+
+func queryTechSlice(ctx context.Context, db *sql.DB, candidateTags []string) []model.TechCount {
+	var result []model.TechCount
+	if len(candidateTags) == 0 {
+		return result
+	}
+
+	placeholders := make([]string, len(candidateTags))
+	args := make([]any, len(candidateTags))
+	for i, tag := range candidateTags {
+		placeholders[i] = "?"
+		args[i] = tag
+	}
+
+	query := fmt.Sprintf(`
+		SELECT j.value as tag, COUNT(*) as c
+		FROM vulnerabilities, json_each(CASE WHEN json_valid(tech_tags) THEN tech_tags ELSE '[]' END) j
+		WHERE j.value IN (%s)
+		GROUP BY j.value
+		ORDER BY c DESC
+		LIMIT 8
+	`, strings.Join(placeholders, ","))
+
+	rows, err := db.QueryContext(ctx, query, args...)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var tc model.TechCount
+			if err := rows.Scan(&tc.Name, &tc.Count); err == nil && tc.Count > 0 {
+				result = append(result, tc)
+			}
+		}
+	}
+
+	// Fallback to LIKE query if no items matched via json_each
+	if len(result) == 0 {
+		for _, tag := range candidateTags {
+			var count int
+			likeQuery := "SELECT COUNT(*) FROM vulnerabilities WHERE tech_tags LIKE ?"
+			err := db.QueryRowContext(ctx, likeQuery, "%"+tag+"%").Scan(&count)
+			if err == nil && count > 0 {
+				result = append(result, model.TechCount{Name: tag, Count: count})
+			}
+		}
+		sortTechCountDesc(result)
+		if len(result) > 8 {
+			result = result[:8]
+		}
+	}
+
+	return result
+}
+
+func sortTechCountDesc(slice []model.TechCount) {
+	for i := 0; i < len(slice); i++ {
+		for j := i + 1; j < len(slice); j++ {
+			if slice[j].Count > slice[i].Count {
+				slice[i], slice[j] = slice[j], slice[i]
+			}
+		}
+	}
+}
+

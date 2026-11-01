@@ -150,6 +150,14 @@ func (s *Server) handleVulnerabilities(w http.ResponseWriter, r *http.Request) {
 	search := strings.TrimSpace(q.Get("search"))
 	sort := strings.TrimSpace(q.Get("sort"))
 	ransomwareOnly := q.Get("ransomware_only") == "true" || q.Get("ransomware") == "1"
+	dateAdded := strings.TrimSpace(q.Get("date"))
+	vector := strings.TrimSpace(q.Get("vector"))
+	epssTier := strings.TrimSpace(q.Get("epss_tier"))
+	ecosystem := strings.TrimSpace(q.Get("ecosystem"))
+	tech := strings.TrimSpace(q.Get("tech"))
+	if tech == "" {
+		tech = strings.TrimSpace(q.Get("tech_tag"))
+	}
 
 	page, _ := strconv.Atoi(q.Get("page"))
 	if page < 1 {
@@ -171,6 +179,11 @@ func (s *Server) handleVulnerabilities(w http.ResponseWriter, r *http.Request) {
 		SortBy:         sort,
 		Limit:          limit,
 		Offset:         offset,
+		DateAdded:      dateAdded,
+		Vector:         vector,
+		EPSSTier:       epssTier,
+		Ecosystem:      ecosystem,
+		TechTag:        tech,
 	}
 
 	ctx := r.Context()

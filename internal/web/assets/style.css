@@ -545,6 +545,47 @@ body {
   color: #86EFAC;
 }
 
+/* Detected Tech Stack & Ecosystem Pills */
+.tech-stack-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  margin-top: 0.35rem;
+}
+
+.tech-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-xs);
+  background: rgba(56, 189, 248, 0.1);
+  color: #38BDF8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  letter-spacing: 0.02em;
+}
+
+.tech-pill.kernel-pill {
+  background: rgba(245, 158, 11, 0.12);
+  color: #FCD34D;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.tech-pill.lib-pill {
+  background: rgba(16, 185, 129, 0.12);
+  color: #6EE7B7;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.tech-pill.eco-pill {
+  background: rgba(244, 63, 94, 0.12);
+  color: #FDA4AF;
+  border-color: rgba(244, 63, 94, 0.3);
+  font-weight: 700;
+}
+
 /* Ransomware Warning Banner */
 .ransomware-alert {
   background: var(--crimson-bg);
@@ -960,9 +1001,597 @@ body {
 }
 
 .c-badge-ransom {
-  background: var(--crimson);
-  color: #FFF;
+  background: rgba(244, 63, 94, 0.18);
+  border: 1px solid rgba(244, 63, 94, 0.5);
+  color: #F43F5E;
   font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+/* EPSS Micro Progress Bar in Table */
+.epss-micro-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+}
+
+.epss-micro-label {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  min-width: 44px;
+}
+
+.epss-micro-track {
+  flex: 1;
+  height: 4px;
+  background: #1E2332;
+  border-radius: 2px;
+  overflow: hidden;
+  max-width: 36px;
+}
+
+.epss-micro-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.epss-micro-fill.crit {
+  background: var(--crimson);
+}
+.epss-micro-fill.high {
+  background: var(--amber);
+}
+.epss-micro-fill.low {
+  background: var(--emerald);
+}
+
+.epss-glow-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--crimson);
+  box-shadow: 0 0 6px var(--crimson);
+  flex-shrink: 0;
+  display: inline-block;
+  animation: pulseGlow 1.8s infinite ease-in-out;
+}
+
+/* 30-Day Threat Activity Heatmap Strip */
+.heatmap-strip {
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border-dim);
+  padding: 0.45rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  flex-shrink: 0;
+}
+
+.heatmap-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.heatmap-title-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.heatmap-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.heatmap-sub {
+  font-size: 0.58rem;
+  color: var(--text-dim);
+  letter-spacing: 0.02em;
+}
+
+.heatmap-filter-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--bg-card);
+  border: 1px solid var(--sky-bright);
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-xs);
+  font-size: 0.68rem;
+  color: var(--sky-bright);
+}
+
+.heatmap-clear-btn {
+  background: none;
+  border: none;
+  color: var(--sky-bright);
+  cursor: pointer;
+  font-size: 0.75rem;
+  line-height: 1;
+  padding: 0;
+  font-weight: 700;
+}
+
+.heatmap-clear-btn:hover {
+  color: #fff;
+}
+
+.heatmap-cells {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.heatmap-cell {
+  width: 14px;
+  height: 18px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease, filter 0.15s ease;
+  border: 1px solid transparent;
+}
+
+.heatmap-cell:hover {
+  transform: scale(1.25);
+  z-index: 10;
+  border-color: #fff;
+  filter: brightness(1.2);
+}
+
+.heatmap-cell.active {
+  outline: 2px solid var(--sky-bright);
+  outline-offset: 1px;
+  z-index: 5;
+}
+
+.heatmap-cell.lvl-0 {
+  background: #151924;
+}
+
+.heatmap-cell.lvl-1 {
+  background: #1E293B;
+}
+
+.heatmap-cell.lvl-2 {
+  background: #0284C7;
+}
+
+.heatmap-cell.lvl-3 {
+  background: #F59E0B;
+}
+
+.heatmap-cell.lvl-crit {
+  background: #F43F5E;
+  box-shadow: 0 0 6px rgba(244, 63, 94, 0.45);
+}
+
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.6rem;
+  color: var(--text-dim);
+}
+
+.legend-cell {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+}
+
+.heatmap-tooltip {
+  position: fixed;
+  display: none;
+  background: #0E1118;
+  border: 1px solid var(--border-focus);
+  border-radius: var(--radius-xs);
+  padding: 4px 8px;
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
+  color: #fff;
+  pointer-events: none;
+  z-index: 9999;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  white-space: nowrap;
+}
+
+/* Attack Kill Chain Matrix Card */
+.killchain-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-bottom: 0.75rem;
+}
+
+.killchain-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--sky-bright);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.killchain-tag {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-xs);
+  background: rgba(56, 189, 248, 0.12);
+  color: var(--sky-bright);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.killchain-flow {
+  display: flex;
+  align-items: stretch;
+  gap: 0.35rem;
+  justify-content: space-between;
+}
+
+.killchain-stage {
+  flex: 1;
+  background: #10141F;
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.25rem;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.killchain-stage:hover {
+  border-color: var(--sky-bright);
+  background: #141A28;
+}
+
+.stage-tag {
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.stage-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-main);
+  line-height: 1.25;
+}
+
+.stage-desc {
+  font-size: 0.66rem;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
+.killchain-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--sky-bright);
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+.killchain-ransom-tag {
+  display: inline-block;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #FFF;
+  background: var(--crimson);
+  padding: 1px 5px;
+  border-radius: 2px;
+  margin-top: 3px;
+  animation: pulseGlow 2s infinite ease-in-out;
+}
+
+/* EPSS Probability Tier Filter Buttons */
+.section-sub {
+  font-size: 0.58rem;
+  color: var(--text-dim);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.epss-tier-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.epss-tier-btn {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.45rem 0.65rem;
+  background: #0E1118;
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+  width: 100%;
+  font-family: var(--font-sans);
+  color: var(--text-main);
+}
+
+.epss-tier-btn:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--sky-bright);
+}
+
+.epss-tier-btn.active {
+  background: #171F2E;
+  border-color: var(--sky-bright);
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.25);
+}
+
+.tier-btn-left {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.tier-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tier-dot.crit {
+  background: var(--crimson);
+  box-shadow: 0 0 4px var(--crimson);
+}
+
+.tier-dot.high {
+  background: var(--amber);
+}
+
+.tier-dot.low {
+  background: var(--emerald);
+}
+
+.tier-name {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.tier-count {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+/* 4-Tab Multi-Ecosystem Telemetry */
+.eco-tab-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 3px;
+  background: #0E1118;
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+  margin-bottom: 0.35rem;
+}
+
+.eco-tab-btn {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-xs);
+  color: var(--text-dim);
+  font-family: var(--font-sans);
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 0.32rem 0.15rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+.eco-tab-btn:hover {
+  color: var(--text-main);
+  background: var(--bg-card);
+}
+
+.eco-tab-btn.active {
+  background: var(--sky-bg);
+  color: var(--sky-bright);
+  border-color: rgba(56, 189, 248, 0.35);
+}
+
+/* Top Vendors / Ecosystem Capacity Bars */
+.vendor-capacity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.vendor-capacity-row {
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  background: #0E1118;
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.65rem;
+  transition: all 0.15s ease;
+}
+
+.vendor-capacity-row:hover {
+  border-color: var(--sky-bright);
+  background: #131824;
+}
+
+.vendor-capacity-row.active {
+  border-color: var(--sky-bright);
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.25);
+}
+
+.vendor-bar-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  background: rgba(56, 189, 248, 0.14);
+  border-radius: var(--radius-sm);
+  transition: width 0.4s ease;
+  pointer-events: none;
+}
+
+.vendor-label {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+}
+
+.vendor-name {
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.vendor-count {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--sky-bright);
+}
+
+/* Attack Vector Segmented Ratio Bar */
+.segmented-ratio-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.segmented-ratio-bar {
+  display: flex;
+  height: 10px;
+  background: #1A1F2C;
+  border-radius: 4px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 1px solid var(--border-dim);
+}
+
+.segment-fill {
+  height: 100%;
+  transition: width 0.3s ease, filter 0.15s ease;
+}
+
+.segment-fill:hover {
+  filter: brightness(1.25);
+}
+
+.seg-network {
+  background: #0284C7;
+}
+
+.seg-local {
+  background: #F59E0B;
+}
+
+.seg-other {
+  background: #64748B;
+}
+
+.vector-legend {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.35rem;
+}
+
+.vector-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem 0.2rem;
+  background: #0E1118;
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+}
+
+.vector-pill:hover {
+  border-color: var(--sky-bright);
+  background: #141A26;
+}
+
+.vector-pill.active {
+  border-color: var(--sky-bright);
+  background: #171F2E;
+  box-shadow: 0 0 6px rgba(56, 189, 248, 0.2);
+}
+
+.legend-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-bottom: 2px;
+}
+
+.dot-network {
+  background: #0284C7;
+}
+
+.dot-local {
+  background: #F59E0B;
+}
+
+.dot-other {
+  background: #64748B;
+}
+
+.legend-title {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+.legend-count {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-top: 1px;
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
 }
 
 /* Toast */

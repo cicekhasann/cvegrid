@@ -360,3 +360,81 @@ func TestParser_SeverityScoring(t *testing.T) {
 		t.Errorf("expected High 7.5, got %s %.1f", defaultItem.Severity, defaultItem.Score)
 	}
 }
+
+func TestParser_TaxonomyClassification(t *testing.T) {
+	tests := []struct {
+		name          string
+		vendor        string
+		product       string
+		desc          string
+		cweID         string
+		wantEco       string
+		wantTagSubstr string
+	}{
+		{
+			name:          "Linux Kernel",
+			vendor:        "Linux",
+			product:       "Kernel",
+			desc:          "Local privilege escalation in netfilter subsystem",
+			cweID:         "CWE-787",
+			wantEco:       model.EcosystemKernelOS,
+			wantTagSubstr: "Linux Kernel",
+		},
+		{
+			name:          "OpenSSL Shared Library",
+			vendor:        "OpenSSL",
+			product:       "OpenSSL",
+			desc:          "Buffer overflow in X.509 certificate verification",
+			cweID:         "CWE-120",
+			wantEco:       model.EcosystemLibPkg,
+			wantTagSubstr: "OpenSSL",
+		},
+		{
+			name:          "Python Web Framework",
+			vendor:        "Python Software Foundation",
+			product:       "Python",
+			desc:          "Arbitrary code execution via pickle deserialization",
+			cweID:         "CWE-502",
+			wantEco:       model.EcosystemRuntimeLang,
+			wantTagSubstr: "Python",
+		},
+		{
+			name:          "C/C++ Memory Corruption Inference",
+			vendor:        "NativeTech",
+			product:       "CoreDaemon",
+			desc:          "Use-after-free allows remote code execution",
+			cweID:         "CWE-416",
+			wantEco:       model.EcosystemRuntimeLang,
+			wantTagSubstr: "C/C++",
+		},
+		{
+			name:          "Cisco Network Hardware",
+			vendor:        "Cisco",
+			product:       "IOS XE",
+			desc:          "Authentication bypass in web UI",
+			cweID:         "CWE-287",
+			wantEco:       model.EcosystemNetworkHW,
+			wantTagSubstr: "Network Infrastructure",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			eco, tags := ingestion.ClassifyTaxonomy(tt.vendor, tt.product, tt.desc, tt.cweID)
+			if eco != tt.wantEco {
+				t.Errorf("expected ecosystem %s, got %s", tt.wantEco, eco)
+			}
+			found := false
+			for _, tag := range tags {
+				if strings.Contains(tag, tt.wantTagSubstr) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Errorf("expected tag containing %q, got tags: %v", tt.wantTagSubstr, tags)
+			}
+		})
+	}
+}
+
